@@ -184,12 +184,15 @@ public:
     {		
 		unsigned int X;
 		unsigned int Y;
+		
 		mCurrentMap_.getCoordinates(X, Y, goal_index);
+		
 		double x = X*mCurrentMap_.getResolution() + mCurrentMap_.getOriginX();	
 		double y = Y*mCurrentMap_.getResolution() + mCurrentMap_.getOriginY();
 	
 		geometry_msgs::Point p;
 		p.x = x; p.y = y; p.z = 0.0;		
+		
 		feedback_.target = p;
 		
 		ROS_INFO("Got the explore goal: %d, %d\n", X, Y);
@@ -202,9 +205,6 @@ public:
 
 		move_goal.target_pose.pose.position.x = x;
 		move_goal.target_pose.pose.position.y = y;
-		move_goal.target_pose.pose.position.z = 0.0;
-		move_goal.target_pose.pose.orientation.x = 0.0;
-		move_goal.target_pose.pose.orientation.y = 0.0;
 		move_goal.target_pose.pose.orientation.w = 1.0;
 
 		ROS_INFO("Sending goal");
@@ -248,7 +248,9 @@ public:
     bool getMap() 
     {
 	    if(!mGetMapClient_.isValid()) 
+		{
 		    return false;
+		}
 
 	    nav_msgs::GetMap srv;
 
