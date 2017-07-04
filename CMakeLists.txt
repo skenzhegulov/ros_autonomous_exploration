@@ -53,9 +53,9 @@ add_executable(explore src/explore_client.cpp)
 target_link_libraries(explore ${catkin_LIBRARIES})
 add_dependencies(explore ${exploration_target_EXPORTED_TARGETS})
 
-add_executable(explore_service src/explore_service.cpp)
-target_link_libraries(explore_service ${catkin_LIBRARIES})
-add_dependencies(explore_service ${exploration_target_EXPORTED_TARGETS})
+#add_executable(explore_service src/explore_service.cpp)
+#target_link_libraries(explore_service ${catkin_LIBRARIES})
+#add_dependencies(explore_service ${exploration_target_EXPORTED_TARGETS})
 
 add_executable(get_map_server src/get_map_server.cpp)
 target_link_libraries(get_map_server ${catkin_LIBRARIES})

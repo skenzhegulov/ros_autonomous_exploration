@@ -14,95 +14,88 @@
 
 #include <exploration_target/ExploreAction.h>
 #include <exploration_target/GridMap.h>
-#include <exploration_target/ExploreTarget.h>
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
-//typedef std::multimap<double, unsigned int> Queue;
-//typedef std::pair<double, unsigned int> Entry;
+typedef std::multimap<double, unsigned int> Queue;
+typedef std::pair<double, unsigned int> Entry;
 
 using namespace tf;
 using namespace ros;
 
-class ExploreService {
+class ExploreAction {
 
 protected:
-	NodeHandle nh_;
+    NodeHandle nh_;
+	actionlib::SimpleActionServer<exploration_target::ExploreAction> as_;
+	exploration_target::ExploreFeedback feedback_;
+	exploration_target::ExploreResult result_;
 	std::string action_name_;
 	MoveBaseClient ac_;
-	ServiceServer exploreServer_, cancelExploreServer_;
+
     ServiceClient mGetMapClient_, clearCostmapsClient_;
     GridMap mCurrentMap_;
+    bool bumped;
     int goal_reached;
-	bool interrupted;
    
 public:
 
-   	ExploreService() : 
+   	ExploreAction(std::string name) : 
+		as_(nh_, name, boost::bind(&ExploreAction::run, this, _1), false),
+		action_name_(name),
 		ac_("move_base", true)
 	{
+		as_.start();
 		while(!ac_.waitForServer()) 
 		{
 			ROS_INFO("Waiting for the move_base action server to come up");
 		}
-		interrupted = false;
-		mCurrentMap_.setLethalCost(80);
-		exploreServer_ = nh_.advertiseService("explore_service", &ExploreService::run, this);
-		cancelExploreServer_ = nh_.advertiseService("explore_cancel", &ExploreService::cancel, this);
-		mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
+		mCurrentMap_.setLethalCost(40);
 	}
 
-	~ExploreService(void) 
+	~ExploreAction(void) 
 	{
 	}
 
-    bool run(exploration_target::ExploreTarget::Request& req,
-			 exploration_target::ExploreTarget::Response& res)
+    	void run(const exploration_target::ExploreGoalConstPtr &goal)
 	{
-		ROS_INFO("Running exploration service");
+		ROS_INFO("Running exploration server");
 
-		unsigned int pos_index;
+	    	mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
+		bumped = false;
+		Subscriber bumper_sub = nh_.subscribe("mobile_base/events/bumper", 5, &ExploreAction::bumpCallback, this);
+	
+		int explore_state = 0;
 
-		if(!getMap()) 
+		while(!explore_state && ok())
 		{
-			ROS_ERROR("Could not get a map");
-			return false;
-		}
+			unsigned int pos_index;
+
+			if(!getMap()) 
+			{
+				ROS_ERROR("Could not get a map");
+				as_.setPreempted();
+				return;
+			}
 			
-		if(!mCurrentMap_.getCurrentPosition(pos_index))
-		{
-			ROS_ERROR("Could not get a position");
-			return false;
+			if(!mCurrentMap_.getCurrentPosition(pos_index))
+			{
+				ROS_ERROR("Could not get a position");
+				as_.setPreempted();
+				return;
+			}
+
+			explore_state = explore(&mCurrentMap_, pos_index);
 		}
 
-		explore(&mCurrentMap_, pos_index);
-/*
-		if(explore_state == 2) {
-			ROS_ERROR("Exploration was interrupted");
-			return false;
-		}
 		if(explore_state)
 		{
 			ROS_ERROR("Could not get a explore target: %d", explore_state);
-			return false;
+			as_.setPreempted();
+			return;
 		}
-*/
-		return true;
+
+		as_.setSucceeded(result_);
     }
-
-	bool cancel(exploration_target::ExploreTarget::Request& req,
-				exploration_target::ExploreTarget::Response& res)
-	{
-		ROS_INFO("Cancel exploration request was sent.");
-
-		interrupted = true;
-
-		Publisher cancel_move = nh_.advertise<actionlib_msgs::GoalID>("move_base/cancel", 1);
-		actionlib_msgs::GoalID msg;
-		cancel_move.publish(msg);	
-
-
-		return true;
-	}
 
     void doneCb(const actionlib::SimpleClientGoalState& state,
 		const move_base_msgs::MoveBaseResult::ConstPtr& result)
@@ -120,18 +113,22 @@ public:
 
     bool moveTo(unsigned int goal_index)
     {		
-		/*clearCostmapsClient_ = nh_.serviceClient<std_srvs::Empty>(std::string("move_base/clear_costmaps"));
+		clearCostmapsClient_ = nh_.serviceClient<std_srvs::Empty>(std::string("move_base/clear_costmaps"));
 		std_srvs::Empty srv;
 		if(clearCostmapsClient_.call(srv)) 
 			ROS_INFO("Costmaps are cleared successfully");
 		else
-			ROS_INFO("Failed to clear costmaps");*/
+			ROS_INFO("Failed to clear costmaps");
 
 		unsigned int X;
 		unsigned int Y;
 		mCurrentMap_.getCoordinates(X, Y, goal_index);
 		double x = X*mCurrentMap_.getResolution() + mCurrentMap_.getOriginX();	
-		double y = Y*mCurrentMap_.getResolution() + mCurrentMap_.getOriginY();		
+		double y = Y*mCurrentMap_.getResolution() + mCurrentMap_.getOriginY();
+	
+		geometry_msgs::Point p;
+		p.x = x; p.y = y; p.z = 2.0;		
+		feedback_.target = p;
 		
 		ROS_INFO("Got the explore goal: %d, %d\n", X, Y);
 		ROS_INFO("Got the explore goal: %f, %f\n", x, y);
@@ -150,30 +147,50 @@ public:
 
 		ROS_INFO("Sending goal");
 		ac_.sendGoal(move_goal,
-			     boost::bind(&ExploreService::doneCb, this, _1, _2));
+			     boost::bind(&ExploreAction::doneCb, this, _1, _2));
 		
 		Rate loop_rate(1);
 
 		goal_reached = 0;
 		int count = 0;
-		while(!goal_reached && !interrupted) 
+		while(!goal_reached && ok() && count<20) 
 		{
 			count++;
-			//loop_rate.sleep();
+			loop_rate.sleep();
 		}
+		
+		result_.target = p;
 
 		if(goal_reached == 1) 
 		{
 			ROS_INFO("Reached the goal");
 			return true;
 		}
-		if(count > 200000)
+		if(count == 20)
 		{
 			ROS_INFO("Robot moved but couldn't reach the goal");
 			return true;
 		}
+		//Publisher cancel_move = nh_.advertise<actionlib_msgs::GoalID>("move_base/cancel", 1);
+		//actionlib_msgs::GoalID msg;
+		//cancel_move.publish(msg);	
 		ROS_INFO("Failed to reach the goal");	
 		return false;
+/*
+		if(bumped) 
+		{
+			ROS_INFO("Robot bumped to something");
+			bumped = false;
+			// TODO: Own recovery algorithm
+						//moveBackward();
+			return false;
+		}
+		else
+		{
+			ROS_INFO("Robot couldn't reach the explore target");
+			return false;
+		}
+*/
     }
 
     bool checkPath(unsigned int start, unsigned int goal) 
@@ -235,7 +252,7 @@ public:
 	    bool *used = new bool[usedSize];
 	    for(unsigned int i = 0; i<usedSize; ++i)
 	    {
-			used[i] = false;
+		used[i] = false;
 	    }
 
 	    Queue queue;
@@ -250,7 +267,7 @@ public:
 	    bool foundFrontier = false;
 	    int cellCount = 0;
 
-	    while(!queue.empty() && !foundFrontier && !interrupted) 
+	    while(!queue.empty() && !foundFrontier) 
 	    {
 		    cellCount++;
 		    next = queue.begin();
@@ -260,14 +277,14 @@ public:
 
 		    if(map->isFrontier(index))
 		    {
-				int block = map->convertToBlock(index);
-				ROS_INFO("Checking the block #%d", block);
-				if(!used[block] && moveTo(index) /* checkPath(start, index)*/ ) 
-				{
-					foundFrontier = true;
-					//moveTo(index);
-				}
-				used[block] = true;
+			int block = map->convertToBlock(index);
+			ROS_DEBUG("Checking the block #%d", block);
+			if(!used[block] && moveTo(index) /* checkPath(start, index)*/ ) 
+			{
+			    foundFrontier = true;
+			    //moveTo(index);
+			}
+			used[block] = true;
 		    }
 		    else
 		    {
@@ -292,9 +309,6 @@ public:
 
 	    ROS_DEBUG("Checked %d cells.", cellCount);
 	    delete [] plan;
-
-		if(interrupted) 
-			return 2;
 
 	    if(foundFrontier) 
 	    {
@@ -328,15 +342,39 @@ public:
 
 	    return true;
     }
+
+    void bumpCallback(const kobuki_msgs::BumperEvent::ConstPtr &msg)
+    {
+	bumped = true;
+    }
+ 
+    void moveBackward() 
+    {
+	ROS_INFO("Trying to move backward");
+	Rate rate(5);
+	geometry_msgs::Twist vel;
+	Publisher cmd_pub = nh_.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1);
+
+	vel.angular.z = 0.0;
+	vel.linear.x = -2.0;
+
+	cmd_pub.publish(vel);
+	rate.sleep();
+	
+	vel.linear.x = 0.0;
+	cmd_pub.publish(vel);
+	ROS_INFO("Moved backward");
+    }
+   
       
 };
 
 int main(int argc, char **argv) 
 {
-	init(argc, argv, "explore_service_node");
+	init(argc, argv, "explore_server_node");
 
-	ExploreService explore_service;
-
+	ExploreAction explore("explore");
+	
 	spin();
 	
 	return 0;

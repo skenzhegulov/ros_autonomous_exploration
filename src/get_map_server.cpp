@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <map>
 #include <std_msgs/Float64.h>
 #include <nav_msgs/GetMap.h>
 #include <nav_msgs/OccupancyGrid.h>
@@ -31,11 +32,19 @@ void mapUpdate(const nav_msgs::OccupancyGrid::ConstPtr &map)
 	map_.map.info.origin.orientation.z = map->info.origin.orientation.z;
 
 	map_.map.data.resize(map->info.width*map->info.height);
-	for(int i=0; i<map->data.size(); i++) map_.map.data[i] = map->data[i];
+
+	std::map<int, int> mp;
+	for(int i=0; i<map->data.size(); i++) 
+		mp[map->data[i]]++,
+		map_.map.data[i] = map->data[i];
 
 	map_.map.header.stamp = map->header.stamp;
 	map_.map.header.frame_id = map->header.frame_id;
-
+/*
+	ROS_INFO("Got map!");
+	for(std::map<int, int>::iterator it=mp.begin(); it!=mp.end(); it++)
+		ROS_INFO("%d, %d", it->first, it->second);
+*/
 	got_map = true;
 }
 
