@@ -1,8 +1,9 @@
 <launch>
 	<node name="get_map_server" pkg="exploration_target" type="get_map_server" />
+
 	<param name="robot_radius" type="double" value="18" />
 	<param name="gain_const" type="double" value="1" />
 	<param name="lethal_cost" type="int" value="85" />
 
-	<node name="explore_server" pkg="exploration_target" type="test_makeplan" output="screen" />
+	<node name="explore_server" pkg="exploration_target" type="explore_server" output="screen" />
 </launch>
