@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 <package>
-  <name>exploration_target</name>
+  <name>autonomous_exploration</name>
   <version>0.0.0</version>
-  <description>The exploration_target package</description>
+  <description>The autonomous exploration package based on frontier and information gain based approach.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="kenz@todo.todo">kenz</maintainer>
+  <maintainer email="kezn@zhaw.ch">Saken Kenzhegulov</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>TODO</license>
+  <license>Apache 2.0</license>
 
 
   <!-- Url tags are optional, but multiple are allowed, one per tag -->

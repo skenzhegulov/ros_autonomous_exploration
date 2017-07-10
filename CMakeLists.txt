@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(exploration_target)
+project(autonomous_exploration)
 
 ## Add support for C++11, supported in ROS Kinetic and newer
 add_definitions(-std=c++11)
@@ -51,12 +51,8 @@ include_directories(
 
 add_executable(explore src/explore_client.cpp)
 target_link_libraries(explore ${catkin_LIBRARIES})
-add_dependencies(explore ${exploration_target_EXPORTED_TARGETS})
-
-#add_executable(explore_service src/explore_service.cpp)
-#target_link_libraries(explore_service ${catkin_LIBRARIES})
-#add_dependencies(explore_service ${exploration_target_EXPORTED_TARGETS})
+add_dependencies(explore ${autonomous_exploration_EXPORTED_TARGETS})
 
 add_executable(get_map_server src/get_map_server.cpp)
 target_link_libraries(get_map_server ${catkin_LIBRARIES})
-add_dependencies(get_map_server ${exploration_target_EXPORTED_TARGETS})
+add_dependencies(get_map_server ${autonomous_exploration_EXPORTED_TARGETS})

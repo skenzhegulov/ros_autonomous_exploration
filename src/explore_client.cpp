@@ -2,7 +2,7 @@
 #include <visualization_msgs/Marker.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
-#include <exploration_target/ExploreAction.h>
+#include <autonomous_exploration/ExploreAction.h>
 
 int main(int argc, char **argv)
 {
@@ -10,12 +10,12 @@ int main(int argc, char **argv)
 	ros::NodeHandle n;
 	ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
 
-	exploration_target::ExploreGoal goal;
-	exploration_target::ExploreResultConstPtr feedback;
+	autonomous_exploration::ExploreGoal goal;
+	autonomous_exploration::ExploreResultConstPtr feedback;
 	bool success;
 	char ch;
 
-	actionlib::SimpleActionClient<exploration_target::ExploreAction> ac("explore", true);
+	actionlib::SimpleActionClient<autonomous_exploration::ExploreAction> ac("explore", true);
 	
 	ROS_INFO("Waiting for action server to start.");
 	ac.waitForServer();

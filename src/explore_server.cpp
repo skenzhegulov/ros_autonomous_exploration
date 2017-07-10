@@ -15,8 +15,8 @@
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
 
-#include <exploration_target/ExploreAction.h>
-#include <exploration_target/GridMap.h>
+#include <autonomous_exploration/ExploreAction.h>
+#include <autonomous_exploration/GridMap.h>
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
@@ -27,9 +27,9 @@ class ExploreAction {
 
 protected:
     NodeHandle nh_;
-	actionlib::SimpleActionServer<exploration_target::ExploreAction> as_;
-	exploration_target::ExploreFeedback feedback_;
-	exploration_target::ExploreResult result_;
+	actionlib::SimpleActionServer<autonomous_exploration::ExploreAction> as_;
+	autonomous_exploration::ExploreFeedback feedback_;
+	autonomous_exploration::ExploreResult result_;
 	std::string action_name_;
 	MoveBaseClient ac_;
 
@@ -73,7 +73,7 @@ public:
 	{
 	}
 
-    void run(const exploration_target::ExploreGoalConstPtr &goal)
+    void run(const autonomous_exploration::ExploreGoalConstPtr &goal)
 	{
 		ROS_INFO("Running exploration server");
 

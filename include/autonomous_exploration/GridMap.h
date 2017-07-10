@@ -10,8 +10,6 @@ using namespace ros;
 typedef std::multimap<double, unsigned int> Queue;
 typedef std::pair<double, unsigned int> Entry;
 
-const unsigned int BLOCK_SIZE = 8;
-
 class GridMap
 {
 public:    
@@ -53,16 +51,6 @@ public:
 
 	    	return true;
     	}
-
-	int convertToBlock(int index) 
-    {
-		int x = index%mMapWidth;
-		if(!x) x+=mMapWidth;
-		x = x/BLOCK_SIZE + (x%BLOCK_SIZE ? 1 : 0);
-		
-		int y = (index-1)/(mMapWidth*BLOCK_SIZE);
-		return x + y*mBlockWidth;
-    }
 
 	void update(nav_msgs::OccupancyGrid grid)
 	{
@@ -173,18 +161,7 @@ public:
 	bool isFrontier(unsigned int index)
 	{
 		if(uFunction(index, ceil(mRobotRadius/getResolution()/45.0)) > mGainConst) return true;
-/*
-		if(getData(x-1, y-1) == -1) return true;
-		if(getData(x-1, y  ) == -1) return true;
-		if(getData(x-1, y+1) == -1) return true;
-		if(getData(x  , y-1) == -1) return true;
-		if(getData(x  , y+1) == -1) return true;
-		if(getData(x+1, y-1) == -1) return true;
-		if(getData(x+1, y  ) == -1) return true;
-		if(getData(x+1, y+1) == -1) return true;
-*/
 		return false;
-
 	}
 
 	double uFunction(unsigned int index, unsigned int radius)
