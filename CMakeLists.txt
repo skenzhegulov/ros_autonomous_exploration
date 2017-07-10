@@ -49,9 +49,13 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(explore src/explore_client.cpp)
-target_link_libraries(explore ${catkin_LIBRARIES})
-add_dependencies(explore ${autonomous_exploration_EXPORTED_TARGETS})
+add_executable(explore_client src/explore_client.cpp)
+target_link_libraries(explore_client ${catkin_LIBRARIES})
+add_dependencies(explore_client ${autonomous_exploration_EXPORTED_TARGETS})
+
+add_executable(explore_server src/explore_server.cpp)
+target_link_libraries(explore_server ${catkin_LIBRARIES})
+add_dependencies(explore_server ${autonomous_exploration_EXPORTED_TARGETS})
 
 add_executable(get_map_server src/get_map_server.cpp)
 target_link_libraries(get_map_server ${catkin_LIBRARIES})

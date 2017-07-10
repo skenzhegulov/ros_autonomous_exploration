@@ -57,18 +57,12 @@ public:
 		mOccupancyGrid = grid;
 		mMapWidth = mOccupancyGrid.info.width;
 		mMapHeight = mOccupancyGrid.info.height;
-		mBlockWidth = mMapWidth/BLOCK_SIZE + (mMapWidth%BLOCK_SIZE ? 1 : 0);
-		mBlockHeight = mMapHeight/BLOCK_SIZE + (mMapHeight%BLOCK_SIZE ? 1 : 0);
 		ROS_DEBUG("Got new map of size %d x %d", mMapWidth, mMapHeight);
-		ROS_DEBUG("Block dimensions %d x %d", mBlockWidth, mBlockHeight);
 	}
 
 	unsigned int getWidth() { return mMapWidth; }
 	unsigned int getHeight() { return mMapHeight; }
 	unsigned int getSize() { return mMapWidth * mMapHeight; }
-	unsigned int getBlockWidth() { return mBlockWidth; }
-	unsigned int getBlockHeight() { return mBlockHeight; }
-	unsigned int getBlockSize() { return mBlockWidth * mBlockHeight; }
 	double getResolution() { return mOccupancyGrid.info.resolution; }
 	double getOriginX() { return mOccupancyGrid.info.origin.position.x; }
 	double getOriginY() { return mOccupancyGrid.info.origin.position.y; }
@@ -261,8 +255,6 @@ private:
 	nav_msgs::OccupancyGrid mOccupancyGrid;
 	unsigned int mMapWidth;
 	unsigned int mMapHeight;
-	unsigned int mBlockWidth;
-	unsigned int mBlockHeight;
 	double mRobotRadius;
 	char mLethalCost;
 	double mGainConst;
