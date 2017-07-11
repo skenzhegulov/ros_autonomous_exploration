@@ -2,7 +2,7 @@
 	<node name="get_map_server" pkg="autonomous_exploration" type="get_map_server" />
 
 	<param name="robot_radius" type="double" value="$(optenv ROS_ROBOT_RADIUS 18)" />
-	<param name="gain_const" type="double" value="$(optenv ROS_GAIN_COST 1)" />
+	<param name="gain_const" type="double" value="$(optenv ROS_GAIN_CONST 1)" />
 	<param name="lethal_cost" type="int" value="$(optenv ROS_LETHAL_COST 85)" />
 
 	<node name="explore_server" pkg="autonomous_exploration" type="explore_server" output="screen" />
