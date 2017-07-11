@@ -4,7 +4,6 @@
 #include <utility>
 #include <nav_msgs/GetMap.h>
 #include <nav_msgs/GetPlan.h>
-#include <kobuki_msgs/BumperEvent.h>
 #include <geometry_msgs/Twist.h>
 #include <message_filters/subscriber.h>
 #include <std_srvs/Trigger.h>
