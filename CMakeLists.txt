@@ -6,7 +6,6 @@ add_definitions(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
   tf
-  nav_msgs
   roscpp
   rospy
   std_msgs
@@ -15,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   geometry_msgs
   nav_msgs
-  kobuki_msgs
 )
 
 find_package(Boost REQUIRED COMPONENTS system)
@@ -36,7 +34,6 @@ generate_messages(
   actionlib_msgs
   geometry_msgs
   nav_msgs
-  kobuki_msgs
 )
 
 catkin_package(
