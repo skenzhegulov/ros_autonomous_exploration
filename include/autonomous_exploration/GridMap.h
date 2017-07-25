@@ -16,41 +16,41 @@ public:
 	bool getCurrentPosition(unsigned int &index) 
 	{
 		TransformListener mTfListener_;
-	    	try
-	    	{
-		    	Time now = Time::now();
-		    	mTfListener_.waitForTransform(std::string("map"), 
-											  std::string("base_footprint"), 
-											  Time(0), Duration(10.0));
+	    try
+	    {
+		   	Time now = Time::now();
+		   	mTfListener_.waitForTransform(std::string("map"), 
+										  std::string("base_footprint"), 
+										  Time(0), Duration(10.0));
 
-	    	    tf::StampedTransform transform;
-		    	mTfListener_.lookupTransform(std::string("map"), 
-											 std::string("base_footprint"), 
-											 Time(0), transform);
+	        tf::StampedTransform transform;
+		   	mTfListener_.lookupTransform(std::string("map"), 
+										 std::string("base_footprint"), 
+										 Time(0), transform);
 
-	    		double x = transform.getOrigin().x();
-	    		double y = transform.getOrigin().y();
-	    		double w = tf::getYaw(transform.getRotation());
+	    	double x = transform.getOrigin().x();
+	    	double y = transform.getOrigin().y();
+	    	double w = tf::getYaw(transform.getRotation());
 
-	    		unsigned int X = (x - getOriginX()) / getResolution();
-	    		unsigned int Y = (y - getOriginY()) / getResolution();
+	    	unsigned int X = (x - getOriginX()) / getResolution();
+	    	unsigned int Y = (y - getOriginY()) / getResolution();
 	
-	    		if(!getIndex(X, Y, index))
-	    		{
-		    		ROS_ERROR("Is the robot out of the map?");
-		    		return false;
-	    		}
-	    			
-				ROS_INFO("Robot's coordinates are %d, %d \n", X, Y);
-	    	}
-	    	catch(TransformException ex)
+	    	if(!getIndex(X, Y, index))
 	    	{
-				ROS_ERROR("Could not get robot position: %s", ex.what());
-		    	return false;
-			}
+		   		ROS_ERROR("Is the robot out of the map?");
+		   		return false;
+	    	}
+	    			
+			ROS_INFO("Robot's coordinates are %d, %d \n", X, Y);
+	    }
+	    catch(TransformException ex)
+	    {
+			ROS_ERROR("Could not get robot position: %s", ex.what());
+		   	return false;
+		}
 
-	    	return true;
-    	}
+	    return true;
+    }
 
 	void update(nav_msgs::OccupancyGrid grid)
 	{
@@ -148,48 +148,57 @@ public:
 		ROS_DEBUG("Current cell area minVal: %d", minVal);
 		ROS_DEBUG("Current cell area maxVal: %d", maxVal);
 
-		if(minVal >= 0 && maxVal < mLethalCost) return true;
+		if(maxVal < mLethalCost) return true;
 		return false;
 	}
 
 	bool isFrontier(unsigned int index)
 	{
+		ROS_DEBUG("Robot radius: %f", mRobotRadius);
+		ROS_DEBUG("Map resolution: %f", getResolution());
 		if(uFunction(index, ceil(mRobotRadius/getResolution()/45.0)) > mGainConst) return true;
 		return false;
 	}
 
 	double uFunction(unsigned int index, unsigned int radius)
 	{
-		int xCenter = index / mMapWidth;
-		int yCenter = index % mMapWidth;
+		unsigned int xCenter;
+		unsigned int yCenter;
+		getCoordinates(xCenter, yCenter, index);
 		unsigned int current_index;
 		std::map<unsigned int, double> minDistance;
 
+		ROS_INFO("Area radius: %d", radius);
+
 		int all_cells = 0;
-		for(int x = xCenter - radius; x <= xCenter; ++x)
-			for(int y = yCenter - radius; y <= yCenter; ++y)
+		for(int x = xCenter; x <= xCenter + radius; ++x)
+			for(int y = yCenter; y <= yCenter + radius; ++y)
 				if((x - xCenter)*(x - xCenter) + (y - yCenter)*(y - yCenter) <= radius*radius)
 				{
 					int xx = xCenter - (x - xCenter);
 					int yy = yCenter - (y - yCenter);
 
-					getIndex(x, y, current_index);
-					minDistance[current_index] = radius*radius;
-					
-					getIndex(xx, y, current_index);
-					minDistance[current_index] = radius*radius;
-					
-					getIndex(x, yy, current_index);
-					minDistance[current_index] = radius*radius;
-					
-					getIndex(xx, yy, current_index);
-					minDistance[current_index] = radius*radius;
-
+					if(getIndex(x, y, current_index))
+					{
+						minDistance[current_index] = radius*radius*radius;
+					}	
+					if(getIndex(xx, y, current_index))
+					{
+						minDistance[current_index] = radius*radius*radius;
+					}
+					if(getIndex(x, yy, current_index))
+					{
+						minDistance[current_index] = radius*radius*radius;
+					}
+					if(getIndex(xx, yy, current_index))
+					{
+						minDistance[current_index] = radius*radius*radius;
+					}
 				}
 
 		Queue queue;
-		queue.insert(Entry(0, index));
-		minDistance[index] = 0;
+		queue.insert(Entry(0.0, index));
+		minDistance[index] = 0.0;
 		
 		int use_cells = 0;
 
@@ -204,27 +213,41 @@ public:
 			all_cells++;
 
 			int value = getData(current_index);
-			if(value < mLethalCost) 
-			{
-				unsigned int ind[4];
-				ind[0] = current_index - 1;
-				ind[1] = current_index + 1;
-				ind[2] = current_index - mMapWidth;
-				ind[3] = current_index + mMapWidth;
+			unsigned int x, y;
+			getCoordinates(x, y, current_index);
 
-				for(int i=0; i<4; ++i)
+			ROS_DEBUG("Current cell %d value: %d", current_index, value);
+
+			if(value < mLethalCost && distance <= std::max(std::abs(x-xCenter), std::abs(y-yCenter))) 
+			{
+				unsigned int ind[8];
+				ind[0] = current_index + 1;
+				ind[1] = current_index - 1;
+				ind[2] = current_index + mMapWidth;
+				ind[3] = current_index - mMapWidth;
+				ind[4] = current_index + mMapWidth + 1;
+				ind[5] = current_index + mMapWidth - 1;
+				ind[6] = current_index - mMapWidth + 1;
+				ind[7] = current_index - mMapWidth - 1;
+
+				for(int i=0; i<8; ++i)
+				{
 					if(minDistance.find(ind[i]) != minDistance.end()
 					&& minDistance[ind[i]] > distance + 1)
 					{
 						minDistance[ind[i]] = distance + 1;
 						queue.insert(Entry(distance + 1, ind[i]));
 					}
+				}
+
+			    if(value) use_cells++;
 			}
 
-			if(value) use_cells++;
 		}
 		double gain = 100.0*use_cells / (all_cells*1.0);
 		ROS_INFO("uFunction value: %f", gain);
+		ROS_INFO("Useful cells: %d", use_cells);
+		ROS_INFO("All counted cells: %d", all_cells);
 		return gain;
 	}
 
@@ -245,10 +268,10 @@ public:
 
 	bool isFree(int x, int y)
 	{
-		char value = getData(x, y);
-		if(value >= 0 && value < mLethalCost) return true;
-
-		return false;
+		unsigned int index;
+	    getIndex(x, y, index);
+		
+		return isFree(index);
 	}
 
 private:

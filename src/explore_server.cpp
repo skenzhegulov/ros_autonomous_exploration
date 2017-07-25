@@ -43,8 +43,6 @@ public:
 		action_name_(name),
 		ac_("move_base", true)
 	{
-		as_.start();
-
 	    mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
 
 		int lethal_cost;
@@ -62,10 +60,10 @@ public:
 		ROS_INFO("Param robot_radius: %f", robot_radius);
 		mCurrentMap_.setRobotRadius(robot_radius);
 
-		while(!ac_.waitForServer()) 
-		{
-			ROS_INFO("Waiting for the move_base action server to come up");
-		}
+		as_.registerPreemptCallback(boost::bind(&ExploreAction::preemptCB, this));
+
+		as_.start();
+
 	}
 
 	~ExploreAction(void) 
@@ -142,7 +140,7 @@ public:
 		    queue.erase(next);
 
 			ROS_INFO("Target distance: %f", distance);
-		    if(distance>0.4 && map->isFrontier(index))
+		    if(distance > 16*linear && map->isFrontier(index))
 		    {
 				foundFrontier = index;
 		    }
@@ -179,8 +177,19 @@ public:
 	    }
     }
 
+	void preemptCB() 
+	{
+		ROS_INFO("Server received a cancel request.");
+		as_.setPreempted();
+	}
+
     bool moveTo(unsigned int goal_index)
-    {		
+    {
+		while(!ac_.waitForServer()) 
+		{
+			ROS_INFO("Waiting for the move_base action server to come up");
+		}
+
 		unsigned int X;
 		unsigned int Y;
 		
