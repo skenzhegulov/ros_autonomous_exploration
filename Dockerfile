@@ -6,8 +6,9 @@ RUN apt-get update && apt-get install -y python-wstool python-rosdep build-essen
 # ref: http://blog.dscpl.com.au/2015/12/random-user-ids-when-running-docker.html
 RUN adduser --disabled-password --gid 0 --gecos "ROS user" rosuser
 RUN mkdir -p /home/rosuser/.ros/log
+RUN mkdir -p /home/rosuser/maps
 RUN chown rosuser:root /home/rosuser && chmod -R 0775 /home/rosuser
-
+RUN chown rosuser:root /home/rosuser/maps && chmod -R 0775 /home/rosuser/maps
 RUN mkdir -p /home/rosuser/catkin_ws
 
 WORKDIR /home/rosuser/catkin_ws/ 
