@@ -76,7 +76,7 @@ public:
 
 		unsigned int explore_target = 0;
 
-		while(explore_target != -1 && ok())
+		while(explore_target != -1 && ok() && as_.isActive())
 		{
 			unsigned int pos_index;
 
@@ -105,11 +105,8 @@ public:
 		if(explore_target == -1)
 		{
 			ROS_ERROR("Could not get a explore target: %d", explore_target);
-			as_.setPreempted();
-			return;
+			as_.setSucceeded(result_);
 		}
-
-		as_.setSucceeded(result_);
     }
 
     int explore(GridMap *map, unsigned int start)
@@ -180,6 +177,8 @@ public:
 	void preemptCB() 
 	{
 		ROS_INFO("Server received a cancel request.");
+		mCurrentMap_.generateMap();
+
 		as_.setPreempted();
 	}
 

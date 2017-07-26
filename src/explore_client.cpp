@@ -55,6 +55,10 @@ int main(int argc, char **argv)
 			ROS_INFO("Action did not finish before the time out.");
 		}
 		std::cin>>ch;
+		if(ch=='c') {
+			ac.cancelGoal();
+			break;
+		}
 	} while(ch!='q');
 	return 0;
 }
