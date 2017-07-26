@@ -29,7 +29,7 @@ RUN chgrp -R root /home/rosuser/.ros/log
 
 RUN chown rosuser:root /home/rosuser/.ros/log && chmod -R 0775 /home/rosuser/.ros/log
 
-USER rosuser
+#USER rosuser
 #WORKDIR /home/rosuser
 ENV HOME /home/rosuser
 
