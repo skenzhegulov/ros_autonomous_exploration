@@ -60,6 +60,12 @@ public:
 		ROS_INFO("Param robot_radius: %f", robot_radius);
 		mCurrentMap_.setRobotRadius(robot_radius);
 
+		std::string map_path;
+		std::string temp = "/";
+		nh_.param("map_path", map_path, temp);
+		ROS_INFO("Map directory path: %s", map_path.c_str());
+		mCurrentMap_.setPath(map_path);
+
 		as_.registerPreemptCallback(boost::bind(&ExploreAction::preemptCB, this));
 
 		as_.start();
@@ -178,7 +184,7 @@ public:
 	{
 		ROS_INFO("Server received a cancel request.");
 		mCurrentMap_.generateMap();
-
+		ac_.cancelGoal();
 		as_.setPreempted();
 	}
 

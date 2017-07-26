@@ -7,6 +7,7 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include "tf/LinearMath/Matrix3x3.h"
 #include "geometry_msgs/Quaternion.h"
+#include "boost/date_time/posix_time/posix_time.hpp"
 
 using namespace tf;
 using namespace ros;
@@ -18,7 +19,9 @@ class GridMap
 {
 public:    
 	void generateMap() {
-		std::string mapdatafile = "map.pgm";
+		boost::posix_time::ptime current_time = Time::now().toBoost();
+		std::string name = boost::posix_time::to_iso_extended_string(current_time);
+		std::string mapdatafile = mPath+name+".pgm";
 		ROS_INFO("Writing map occupancy data to %s", mapdatafile.c_str());
 		FILE* out = fopen(mapdatafile.c_str(), "w");
 		if(!out)
@@ -54,7 +57,7 @@ public:
 
 		fclose(out);
 
-		std::string mapmetadatafile = "map.yaml";
+		std::string mapmetadatafile = mPath+name+".yaml";
 		ROS_INFO("Writing map occupancy data to %s", mapmetadatafile.c_str());
 		FILE* yaml = fopen(mapmetadatafile.c_str(), "w");
 
@@ -130,6 +133,7 @@ public:
 	double getGainConst() { return mGainConst; }
 	void setGainConst(double c) { mGainConst = c; }
 	void setRobotRadius(double r) { mRobotRadius = r; }
+	void setPath(std::string s) { mPath = s; }
 	
 	const nav_msgs::OccupancyGrid& getMap() const { return mOccupancyGrid; }
 
@@ -339,6 +343,7 @@ private:
 	double mRobotRadius;
 	char mLethalCost;
 	double mGainConst;
+	std::string mPath;
 };           
 
 #endif
