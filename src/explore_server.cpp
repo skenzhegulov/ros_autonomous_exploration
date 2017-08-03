@@ -80,9 +80,7 @@ public:
 	{
 		ROS_INFO("Running exploration server");
 
-		unsigned int explore_target = 0;
-
-		while(explore_target != -1 && ok() && as_.isActive())
+		while(ok() && as_.isActive())
 		{
 			unsigned int pos_index;
 
@@ -100,18 +98,26 @@ public:
 				return;
 			}
 
-			explore_target = explore(&mCurrentMap_, pos_index);
+			int explore_target = explore(&mCurrentMap_, pos_index);
 
 			if(explore_target != -1) 
 			{
 				moveTo(explore_target);
 			}
+			else
+			{
+				break;
+			}
 		}
 
-		if(explore_target == -1)
+		if(as_.isActive()) 
 		{
-			ROS_ERROR("Could not get a explore target: %d", explore_target);
 			as_.setSucceeded(result_);
+			ROS_INFO("Exploration finished");
+		}
+		else
+		{
+			ROS_INFO("Exploration was interrupted");
 		}
     }
 
@@ -184,6 +190,7 @@ public:
 	{
 		ROS_INFO("Server received a cancel request.");
 		mCurrentMap_.generateMap();
+		goal_reached = 2;
 		ac_.cancelGoal();
 		as_.setPreempted();
 	}
@@ -239,7 +246,8 @@ public:
 		{
 			ROS_INFO("Reached the goal");
 			return true;
-		}
+		}   
+		
 		ROS_INFO("Failed to reach the goal");	
 		return false;
     }
