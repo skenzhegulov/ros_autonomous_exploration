@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <map>
+#include <cstdio>
 #include <queue>
 #include <utility>
 #include <nav_msgs/GetMap.h>
@@ -43,6 +44,8 @@ public:
 		action_name_(name),
 		ac_("move_base", true)
 	{
+		ROS_INFO("Constructor");
+		puts("Constructor");
 	    mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
 
 		int lethal_cost;
@@ -79,6 +82,7 @@ public:
     void run(const autonomous_exploration::ExploreGoalConstPtr &goal)
 	{
 		ROS_INFO("Running exploration server");
+		puts("Running exploration server");
 
 		while(ok() && as_.isActive())
 		{
@@ -294,8 +298,11 @@ int main(int argc, char **argv)
 {
 	init(argc, argv, "explore_server_node");
 
+	ROS_INFO("Creating explore object");
+	puts("Creating explore object");
 	ExploreAction explore("explore");
 	
+	ROS_INFO("Spin()");
 	spin();
 	
 	return 0;
