@@ -230,7 +230,7 @@ public:
 		unsigned int current_index;
 		std::map<unsigned int, double> minDistance;
 
-		ROS_INFO("Area radius: %d", radius);
+		ROS_DEBUG("Area radius: %d", radius);
 
 		int all_cells = 0;
 		for(int x = xCenter; x <= xCenter + radius; ++x)
@@ -307,9 +307,9 @@ public:
 
 		}
 		double gain = 100.0*use_cells / (all_cells*1.0);
-		ROS_INFO("uFunction value: %f", gain);
-		ROS_INFO("Useful cells: %d", use_cells);
-		ROS_INFO("All counted cells: %d", all_cells);
+		ROS_DEBUG("uFunction value: %f", gain);
+		ROS_DEBUG("Useful cells: %d", use_cells);
+		ROS_DEBUG("All counted cells: %d", all_cells);
 		return gain;
 	}
 
