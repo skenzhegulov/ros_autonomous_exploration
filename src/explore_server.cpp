@@ -148,7 +148,7 @@ public:
 		    unsigned int index = next->second;
 		    queue.erase(next);
 
-			ROS_INFO("Target distance: %f", distance);
+			ROS_DEBUG("Target distance: %f", distance);
 		    if(distance > 16*linear && map->isFrontier(index))
 		    {
 				foundFrontier = index;
