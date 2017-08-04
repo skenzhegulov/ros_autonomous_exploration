@@ -6,5 +6,5 @@
 	<param name="lethal_cost" type="int" value="$(optenv ROS_LETHAL_COST 85)" />
 	<param name="map_path" type="string" value="$(env HOME)/maps/"/>
 
-	<node name="explore_server" pkg="autonomous_exploration" type="explore_server" output="screen" />
+	<node name="explore_server" pkg="autonomous_exploration" type="explore_server" />
 </launch>

@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <queue>
 #include <utility>
+#include <iostream>
+#include <fstream>
 #include <nav_msgs/GetMap.h>
 #include <nav_msgs/GetPlan.h>
 #include <geometry_msgs/Twist.h>
@@ -300,6 +302,7 @@ int main(int argc, char **argv)
 
 	ROS_INFO("Creating explore object");
 	puts("Creating explore object");
+
 	ExploreAction explore("explore");
 	
 	ROS_INFO("Spin()");
