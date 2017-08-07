@@ -3,8 +3,6 @@
 #include <cstdio>
 #include <queue>
 #include <utility>
-#include <iostream>
-#include <fstream>
 #include <nav_msgs/GetMap.h>
 #include <nav_msgs/GetPlan.h>
 #include <geometry_msgs/Twist.h>
@@ -27,18 +25,6 @@ using namespace ros;
 
 class ExploreAction {
 
-protected:
-    NodeHandle nh_;
-	actionlib::SimpleActionServer<autonomous_exploration::ExploreAction> as_;
-	autonomous_exploration::ExploreFeedback feedback_;
-	autonomous_exploration::ExploreResult result_;
-	std::string action_name_;
-	MoveBaseClient ac_;
-
-    ServiceClient mGetMapClient_;
-    GridMap mCurrentMap_;
-    int goal_reached;
-   
 public:
 
    	ExploreAction(std::string name) : 
@@ -46,8 +32,6 @@ public:
 		action_name_(name),
 		ac_("move_base", true)
 	{
-		ROS_INFO("Constructor");
-		puts("Constructor");
 	    mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
 
 		int lethal_cost;
@@ -59,7 +43,7 @@ public:
 		nh_.param("gain_const", gain_const, 23.);
 		ROS_INFO("Param gain_const: %f", gain_const);
 		mCurrentMap_.setGainConst(gain_const);
-
+		
 		double robot_radius;
 		nh_.param("robot_radius", robot_radius, 18.);
 		ROS_INFO("Param robot_radius: %f", robot_radius);
@@ -127,6 +111,30 @@ public:
 		}
     }
 
+	void preemptCB() 
+	{
+		ROS_INFO("Server received a cancel request.");
+		mCurrentMap_.generateMap();
+		goal_reached = 2;
+		ac_.cancelGoal();
+		as_.setPreempted();
+	}    
+	
+	void doneCb(const actionlib::SimpleClientGoalState& state,
+		const move_base_msgs::MoveBaseResult::ConstPtr& result)
+    {
+		if(state == actionlib::SimpleClientGoalState::SUCCEEDED)
+		{
+			ROS_INFO("Robot reached the explore target");
+			goal_reached = 1;
+		} 
+		else
+		{
+			goal_reached = -1;
+		}
+    }
+
+private:
     int explore(GridMap *map, unsigned int start)
     {
 	    ROS_INFO("Starting exploration");
@@ -192,15 +200,6 @@ public:
 	    }
     }
 
-	void preemptCB() 
-	{
-		ROS_INFO("Server received a cancel request.");
-		mCurrentMap_.generateMap();
-		goal_reached = 2;
-		ac_.cancelGoal();
-		as_.setPreempted();
-	}
-
     bool moveTo(unsigned int goal_index)
     {
 		while(!ac_.waitForServer()) 
@@ -258,20 +257,6 @@ public:
 		return false;
     }
 
-    void doneCb(const actionlib::SimpleClientGoalState& state,
-		const move_base_msgs::MoveBaseResult::ConstPtr& result)
-    {
-		if(state == actionlib::SimpleClientGoalState::SUCCEEDED)
-		{
-			ROS_INFO("Robot reached the explore target");
-			goal_reached = 1;
-		} 
-		else
-		{
-			goal_reached = -1;
-		}
-    }
-
     bool getMap() 
     {
 	    if(!mGetMapClient_.isValid()) 
@@ -293,19 +278,26 @@ public:
 
 	    return true;
     }
-      
+
+protected:
+    NodeHandle nh_;
+	actionlib::SimpleActionServer<autonomous_exploration::ExploreAction> as_;
+	autonomous_exploration::ExploreFeedback feedback_;
+	autonomous_exploration::ExploreResult result_;
+	std::string action_name_;
+	MoveBaseClient ac_;
+
+    ServiceClient mGetMapClient_;
+    GridMap mCurrentMap_;
+    int goal_reached;
 };
 
 int main(int argc, char **argv) 
 {
 	init(argc, argv, "explore_server_node");
 
-	ROS_INFO("Creating explore object");
-	puts("Creating explore object");
-
 	ExploreAction explore("explore");
 	
-	ROS_INFO("Spin()");
 	spin();
 	
 	return 0;

@@ -218,7 +218,11 @@ public:
 	{
 		ROS_DEBUG("Robot radius: %f", mRobotRadius);
 		ROS_DEBUG("Map resolution: %f", getResolution());
-		if(uFunction(index, ceil(mRobotRadius/getResolution()/45.0)) > mGainConst) return true;
+		double currentGain = mGainConst;
+		while(currentGain > 5.0) {
+			if(uFunction(index, ceil(mRobotRadius/getResolution()/45.0)) > mGainConst) return true;
+			currentGain /= 1.5;
+		}
 		return false;
 	}
 
