@@ -1,6 +1,6 @@
-FROM ros:indigo
+FROM ros:kinetic
 
-RUN apt-get update && apt-get install -y python-wstool python-rosdep build-essential
+RUN apt-get update && apt-get install -y python-wstool python-rosdep build-essential ros-kinetic-tf ros-kinetic-move-base-msgs
 
 # add user and make sure her stuff is writable whichever userid is given at runtime
 # ref: http://blog.dscpl.com.au/2015/12/random-user-ids-when-running-docker.html
@@ -20,7 +20,7 @@ RUN wstool init src \
 	&& rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -y
 
 # Build and install.
-RUN /bin/bash -c "source /opt/ros/indigo/setup.bash && catkin_make"  
+RUN /bin/bash -c "source /opt/ros/kinetic/setup.bash && catkin_make"  
 
 COPY ./entrypoint.sh /home/rosuser/
 

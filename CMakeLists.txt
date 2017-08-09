@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   geometry_msgs
   nav_msgs
+  visualization_msgs
 )
 
 find_package(Boost REQUIRED COMPONENTS system)
@@ -29,6 +30,7 @@ generate_messages(
   actionlib_msgs
   geometry_msgs
   nav_msgs
+  visualization_msgs
 )
 
 catkin_package(

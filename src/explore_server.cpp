@@ -1,14 +1,10 @@
 #include <ros/ros.h>
 #include <map>
-#include <cstdio>
 #include <queue>
-#include <utility>
 #include <nav_msgs/GetMap.h>
-#include <nav_msgs/GetPlan.h>
 #include <geometry_msgs/Twist.h>
 #include <message_filters/subscriber.h>
-#include <std_srvs/Trigger.h>
-#include <std_srvs/Empty.h>
+#include <std_msgs/ColorRGBA.h>
 #include <tf/transform_listener.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/server/simple_action_server.h>
@@ -17,6 +13,9 @@
 
 #include <autonomous_exploration/ExploreAction.h>
 #include <autonomous_exploration/GridMap.h>
+#include <autonomous_exploration/VisMarker.h>
+#include <autonomous_exploration/PoseWrap.h>
+#include <autonomous_exploration/Color.h>
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
@@ -32,7 +31,8 @@ public:
 		action_name_(name),
 		ac_("move_base", true)
 	{
-	    mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
+		mMarker_pub_ = nh_.advertise<visualization_msgs::Marker>("vis_marker", 2);
+		mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
 
 		int lethal_cost;
 		nh_.param("lethal_cost", lethal_cost, 85);
@@ -67,11 +67,16 @@ public:
 
     void run(const autonomous_exploration::ExploreGoalConstPtr &goal)
 	{
-		ROS_INFO("Running exploration server");
-		puts("Running exploration server");
+		Rate loop_rate(2);
 
-		while(ok() && as_.isActive())
+		double currentGain = mCurrentMap_.getGainConst();
+		int count = 0;
+
+		while(ok() && as_.isActive() && currentGain > 8.0)
 		{
+			loop_rate.sleep();
+			mCurrentMap_.setGainConst(currentGain);
+			
 			unsigned int pos_index;
 
 			if(!getMap()) 
@@ -80,7 +85,7 @@ public:
 				as_.setPreempted();
 				return;
 			}
-			
+
 			if(!mCurrentMap_.getCurrentPosition(pos_index))
 			{
 				ROS_ERROR("Could not get a position");
@@ -93,10 +98,19 @@ public:
 			if(explore_target != -1) 
 			{
 				moveTo(explore_target);
+
+				if(count) 
+				{
+					currentGain *= 1.5;
+					count--;
+					ROS_INFO("Gain was increased to: %f", currentGain);
+				}
 			}
 			else
 			{
-				break;
+				currentGain /= 1.5;
+				count++;
+				ROS_INFO("Gain was decreased to: %f", currentGain);
 			}
 		}
 
@@ -138,6 +152,10 @@ private:
     int explore(GridMap *map, unsigned int start)
     {
 	    ROS_INFO("Starting exploration");
+
+		map->clearArea(start);
+		ROS_INFO("Cleared the area");
+
 	    unsigned int mapSize = map->getSize();
 	    double *plan = new double[mapSize];
 	    for(unsigned int i = 0; i<mapSize; i++)
@@ -166,6 +184,7 @@ private:
 		    if(distance > 16*linear && map->isFrontier(index))
 		    {
 				foundFrontier = index;
+				publishMarker(index, 2);
 		    }
 		    else
 		    {
@@ -183,12 +202,15 @@ private:
 				    {
 					    queue.insert(Entry(distance+linear, i));
 					    plan[i] = distance+linear;
+
+						publishMarker(index, 1);
 				    }
 			    }
 		    }
 	    }
 
 	    delete [] plan;
+		queue.clear();
 
 	    if(foundFrontier) 
 	    {
@@ -202,25 +224,17 @@ private:
 
     bool moveTo(unsigned int goal_index)
     {
+		Rate loop_rate(2);
+
 		while(!ac_.waitForServer()) 
 		{
 			ROS_INFO("Waiting for the move_base action server to come up");
+			loop_rate.sleep();
 		}
 
-		unsigned int X;
-		unsigned int Y;
-		
-		mCurrentMap_.getCoordinates(X, Y, goal_index);
-		
-		double x = X*mCurrentMap_.getResolution() + mCurrentMap_.getOriginX();	
-		double y = Y*mCurrentMap_.getResolution() + mCurrentMap_.getOriginY();
+		double x, y;
+		mCurrentMap_.getOdomCoordinates(x, y, goal_index);
 	
-		geometry_msgs::Point p;
-		p.x = x; p.y = y; p.z = 0.0;		
-		
-		feedback_.target = p;
-		
-		ROS_INFO("Got the explore goal: %d, %d\n", X, Y);
 		ROS_INFO("Got the explore goal: %f, %f\n", x, y);
 
 	   	move_base_msgs::MoveBaseGoal move_goal;
@@ -228,16 +242,13 @@ private:
 		move_goal.target_pose.header.frame_id = "map";
 		move_goal.target_pose.header.stamp = Time(0);
 
-		move_goal.target_pose.pose.position.x = x;
-		move_goal.target_pose.pose.position.y = y;
-		move_goal.target_pose.pose.orientation.w = 1.0;
-
+		PoseWrap pose(x, y);
+		move_goal.target_pose.pose = pose.getPose();
+		
 		ROS_INFO("Sending goal");
 		ac_.sendGoal(move_goal,
 			     boost::bind(&ExploreAction::doneCb, this, _1, _2));
 		
-		Rate loop_rate(2);
-
 		goal_reached = 0;
 
 		while(goal_reached == 0 && ok()) 
@@ -245,8 +256,6 @@ private:
 			loop_rate.sleep();
 		}
 		
-		result_.target = p;
-
 		if(goal_reached == 1) 
 		{
 			ROS_INFO("Reached the goal");
@@ -279,6 +288,29 @@ private:
 	    return true;
     }
 
+	void publishMarker(unsigned int index, int type) {
+		double x, y;
+		mCurrentMap_.getOdomCoordinates(x, y, index);
+		PoseWrap pose(x, y);
+
+		VisMarker marker;
+		/*
+		  type:
+			1: free area
+			2: frontier
+		*/
+		if(type == 1) {
+			Color color(0, 0, 0.7);
+			marker.setParams("free", pose.getPose(), 0.35, color.getColor());
+		} else
+		if(type == 2) {
+			Color color(0, 0.7, 0);
+			marker.setParams("frontier", pose.getPose(), 0.75, color.getColor());
+		}
+
+		mMarker_pub_.publish(marker.getMarker());
+	}	
+
 protected:
     NodeHandle nh_;
 	actionlib::SimpleActionServer<autonomous_exploration::ExploreAction> as_;
@@ -290,6 +322,8 @@ protected:
     ServiceClient mGetMapClient_;
     GridMap mCurrentMap_;
     int goal_reached;
+
+	Publisher mMarker_pub_;
 };
 
 int main(int argc, char **argv) 

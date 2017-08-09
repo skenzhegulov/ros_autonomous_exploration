@@ -3,8 +3,8 @@
 
 	<param name="robot_radius" type="double" value="$(optenv ROS_ROBOT_RADIUS 22)" />
 	<param name="gain_const" type="double" value="$(optenv ROS_GAIN_CONST 30)" />
-	<param name="lethal_cost" type="int" value="$(optenv ROS_LETHAL_COST 85)" />
+	<param name="lethal_cost" type="int" value="$(optenv ROS_LETHAL_COST 65)" />
 	<param name="map_path" type="string" value="$(env HOME)/maps/"/>
 
-	<node name="explore_server" pkg="autonomous_exploration" type="explore_server" />
+	<node name="explore_server" pkg="autonomous_exploration" type="explore_server" output="screen" />
 </launch>

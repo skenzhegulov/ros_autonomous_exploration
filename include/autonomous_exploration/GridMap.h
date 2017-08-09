@@ -132,7 +132,9 @@ public:
 	void setLethalCost(char c) { mLethalCost = c; };
 	double getGainConst() { return mGainConst; }
 	void setGainConst(double c) { mGainConst = c; }
+	double getRobotRadius() { return mRobotRadius; }
 	void setRobotRadius(double r) { mRobotRadius = r; }
+	std::string getPath() { return mPath; }
 	void setPath(std::string s) { mPath = s; }
 	
 	const nav_msgs::OccupancyGrid& getMap() const { return mOccupancyGrid; }
@@ -161,32 +163,48 @@ public:
 		return true;
 	}
 
-	char getData(unsigned int index)
-	{
-		if(index < mMapWidth*mMapHeight)
-			return mOccupancyGrid.data[index];
-		else
-			return -1;
-	}
-
-	bool setData(unsigned int index, char value)
-	{
-		if(index >= mMapWidth*mMapHeight)
-		{
+	bool getOdomCoordinates(double &x, double &y, unsigned int i) {
+		unsigned int X;
+		unsigned int Y;
+		if(!getCoordinates(X, Y, i)) {
 			return false;
 		}
-
-		mOccupancyGrid.data[index] = value;
+		x = X*getResolution() + getOriginX();
+        y = Y*getResolution() + getOriginY();
 		return true;
 	}
 
-	bool isFree(unsigned int index)
+	void clearArea(unsigned int center) {
+		unsigned int xCenter;
+		unsigned int yCenter;
+		getCoordinates(xCenter, yCenter, center);
+
+		int radius = ceil(mRobotRadius / getResolution() / 100.0);
+
+		int vx[2], vy[2];
+		for(int x = xCenter - radius; x <= xCenter; ++x)
+			for(int y = yCenter - radius; y <= yCenter; ++y)
+				if((x - xCenter)*(x - xCenter) + (y - yCenter)*(y - yCenter) <= radius*radius) 
+				{
+					vx[0] = x;
+					vy[0] = y;
+					vx[1] = xCenter - (x - xCenter);
+					vy[1] = yCenter - (y - yCenter);
+
+					for(int i=0; i<2; ++i)
+						for(int j=0; j<2; ++j)
+							{
+								setData(vx[i], vy[j], 0);
+							}
+				}
+
+	}
+
+	bool isFree(unsigned int xCenter, unsigned int yCenter)
 	{
 		int minVal = 101;
 		int maxVal = -1;
-		int radius = ceil(1.3*mRobotRadius/getResolution()/100.0);
-		int yCenter = index / mMapWidth;
-		int xCenter = index % mMapWidth;
+		int radius = ceil(mRobotRadius/getResolution()/100.0);
 		int val, vx[2], vy[2];
 		for(int x = xCenter - radius; x <= xCenter; ++x)
 			for(int y = yCenter - radius; y <= yCenter; ++y)
@@ -206,24 +224,26 @@ public:
 							}
 				}
 		
-		ROS_DEBUG("Current cell index: %d", index);
 		ROS_DEBUG("Current cell area minVal: %d", minVal);
 		ROS_DEBUG("Current cell area maxVal: %d", maxVal);
 
-		if(maxVal < mLethalCost) return true;
+		if(maxVal < mLethalCost && minVal > -1) return true;
 		return false;
+	}
+
+	bool isFree(unsigned int index)
+	{
+		unsigned int x;
+		unsigned int y;
+	    getCoordinates(x, y, index);
+		return isFree(x, y);
 	}
 
 	bool isFrontier(unsigned int index)
 	{
 		ROS_DEBUG("Robot radius: %f", mRobotRadius);
 		ROS_DEBUG("Map resolution: %f", getResolution());
-		double currentGain = mGainConst;
-		while(currentGain > 5.0) {
-			if(uFunction(index, ceil(mRobotRadius/getResolution()/45.0)) > mGainConst) return true;
-			currentGain /= 1.5;
-		}
-		return false;
+		return uFunction(index, ceil(3.*mRobotRadius/getResolution()/100.0)) > mGainConst;
 	}
 
 	double uFunction(unsigned int index, unsigned int radius)
@@ -317,6 +337,25 @@ public:
 		return gain;
 	}
 
+	char getData(unsigned int index)
+	{
+		if(index < mMapWidth*mMapHeight)
+			return mOccupancyGrid.data[index];
+		else
+			return -1;
+	}
+
+	bool setData(unsigned int index, char value)
+	{
+		if(index >= mMapWidth*mMapHeight)
+		{
+			return false;
+		}
+
+		mOccupancyGrid.data[index] = value;
+		return true;
+	}
+
 	char getData(int x, int y)
 	{
 		if(x < 0 || x >= (int)mMapWidth || y < 0 || y >= (int)mMapHeight) return -1;
@@ -330,14 +369,6 @@ public:
 
 		mOccupancyGrid.data[y*mMapWidth + x] = value;
 		return true;
-	}
-
-	bool isFree(int x, int y)
-	{
-		unsigned int index;
-	    getIndex(x, y, index);
-		
-		return isFree(index);
 	}
 
 private:
