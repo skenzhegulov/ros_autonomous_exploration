@@ -31,29 +31,33 @@ public:
 		action_name_(name),
 		ac_("move_base", true)
 	{
-		mMarker_pub_ = nh_.advertise<visualization_msgs::Marker>("vis_marker", 2);
+		mMarkerPub_ = nh_.advertise<visualization_msgs::Marker>("vis_marker", 2);
 		mGetMapClient_ = nh_.serviceClient<nav_msgs::GetMap>(std::string("current_map"));
 
+		double laser_range;
+		nh_.param("laser_max_range", laser_range, 2.);
+		mCurrentMap_.setLaserRange(laser_range);
+
 		int lethal_cost;
-		nh_.param("lethal_cost", lethal_cost, 85);
-		ROS_INFO("Param lethal_cost: %d", lethal_cost);
+		nh_.param("lethal_cost", lethal_cost, 65);
 		mCurrentMap_.setLethalCost(lethal_cost);
 
-		double gain_const;
-		nh_.param("gain_const", gain_const, 23.);
-		ROS_INFO("Param gain_const: %f", gain_const);
-		mCurrentMap_.setGainConst(gain_const);
+		double gain;
+		nh_.param("gain_threshold", gain, 35.);
+		mCurrentMap_.setGainConst(gain);
 		
 		double robot_radius;
-		nh_.param("robot_radius", robot_radius, 18.);
-		ROS_INFO("Param robot_radius: %f", robot_radius);
+		nh_.param("robot_radius", robot_radius, 0.19);
 		mCurrentMap_.setRobotRadius(robot_radius);
 
 		std::string map_path;
 		std::string temp = "/";
 		nh_.param("map_path", map_path, temp);
-		ROS_INFO("Map directory path: %s", map_path.c_str());
 		mCurrentMap_.setPath(map_path);
+
+		nh_.param("min_distance", minDistance_, 1.);
+		nh_.param("min_gain_threshold", minGain_, 8.);
+		nh_.param("gain_change", gainChangeFactor_, 1.5);
 
 		as_.registerPreemptCallback(boost::bind(&ExploreAction::preemptCB, this));
 
@@ -67,15 +71,15 @@ public:
 
     void run(const autonomous_exploration::ExploreGoalConstPtr &goal)
 	{
-		Rate loop_rate(2);
+		Rate loop_rate(4);
 
-		double currentGain = mCurrentMap_.getGainConst();
+		double current_gain = mCurrentMap_.getGainConst();
 		int count = 0;
 
-		while(ok() && as_.isActive() && currentGain > 8.0)
+		while(ok() && as_.isActive() && current_gain >= minGain_)
 		{
 			loop_rate.sleep();
-			mCurrentMap_.setGainConst(currentGain);
+			mCurrentMap_.setGainConst(current_gain);
 			
 			unsigned int pos_index;
 
@@ -101,16 +105,16 @@ public:
 
 				if(count) 
 				{
-					currentGain *= 1.5;
+					current_gain *= gainChangeFactor_;
 					count--;
-					ROS_INFO("Gain was increased to: %f", currentGain);
+					ROS_INFO("Gain was increased to: %f", current_gain);
 				}
 			}
 			else
 			{
-				currentGain /= 1.5;
+				current_gain /= gainChangeFactor_;
 				count++;
-				ROS_INFO("Gain was decreased to: %f", currentGain);
+				ROS_INFO("Gain was decreased to: %f", current_gain);
 			}
 		}
 
@@ -129,7 +133,7 @@ public:
 	{
 		ROS_INFO("Server received a cancel request.");
 		mCurrentMap_.generateMap();
-		goal_reached = 2;
+		goalReached_ = -1;
 		ac_.cancelGoal();
 		as_.setPreempted();
 	}    
@@ -140,11 +144,11 @@ public:
 		if(state == actionlib::SimpleClientGoalState::SUCCEEDED)
 		{
 			ROS_INFO("Robot reached the explore target");
-			goal_reached = 1;
+			goalReached_ = 1;
 		} 
 		else
 		{
-			goal_reached = -1;
+			goalReached_ = -1;
 		}
     }
 
@@ -173,7 +177,7 @@ private:
 	    double linear = map->getResolution();
 	    int foundFrontier = 0;
 
-	    while(!queue.empty() && !foundFrontier) 
+	    while(!queue.empty() && !foundFrontier && goalReached_ != 2) 
 	    {
 		    next = queue.begin();
 		    distance = next->first;
@@ -181,7 +185,7 @@ private:
 		    queue.erase(next);
 
 			ROS_DEBUG("Target distance: %f", distance);
-		    if(distance > 16*linear && map->isFrontier(index))
+		    if(distance > minDistance_ && map->isFrontier(index))
 		    {
 				foundFrontier = index;
 				publishMarker(index, 2);
@@ -224,7 +228,7 @@ private:
 
     bool moveTo(unsigned int goal_index)
     {
-		Rate loop_rate(2);
+		Rate loop_rate(8);
 
 		while(!ac_.waitForServer()) 
 		{
@@ -249,14 +253,14 @@ private:
 		ac_.sendGoal(move_goal,
 			     boost::bind(&ExploreAction::doneCb, this, _1, _2));
 		
-		goal_reached = 0;
+		goalReached_ = 0;
 
-		while(goal_reached == 0 && ok()) 
+		while(goalReached_ == 0 && ok()) 
 		{
 			loop_rate.sleep();
 		}
 		
-		if(goal_reached == 1) 
+		if(goalReached_ == 1) 
 		{
 			ROS_INFO("Reached the goal");
 			return true;
@@ -308,7 +312,7 @@ private:
 			marker.setParams("frontier", pose.getPose(), 0.75, color.getColor());
 		}
 
-		mMarker_pub_.publish(marker.getMarker());
+		mMarkerPub_.publish(marker.getMarker());
 	}	
 
 protected:
@@ -321,9 +325,12 @@ protected:
 
     ServiceClient mGetMapClient_;
     GridMap mCurrentMap_;
-    int goal_reached;
+	double minDistance_;
+	double minGain_;
+	double gainChangeFactor_;
+    int goalReached_;
 
-	Publisher mMarker_pub_;
+	Publisher mMarkerPub_;
 };
 
 int main(int argc, char **argv) 

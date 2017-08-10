@@ -113,31 +113,6 @@ public:
 	    return true;
     }
 
-	void update(nav_msgs::OccupancyGrid grid)
-	{
-		mOccupancyGrid = grid;
-		mMapWidth = mOccupancyGrid.info.width;
-		mMapHeight = mOccupancyGrid.info.height;
-		ROS_DEBUG("Got new map of size %d x %d", mMapWidth, mMapHeight);
-	}
-
-	unsigned int getWidth() { return mMapWidth; }
-	unsigned int getHeight() { return mMapHeight; }
-	unsigned int getSize() { return mMapWidth * mMapHeight; }
-	double getResolution() { return mOccupancyGrid.info.resolution; }
-	double getOriginX() { return mOccupancyGrid.info.origin.position.x; }
-	double getOriginY() { return mOccupancyGrid.info.origin.position.y; }
-
-	char getLethalCost() { return mLethalCost; }
-	void setLethalCost(char c) { mLethalCost = c; };
-	double getGainConst() { return mGainConst; }
-	void setGainConst(double c) { mGainConst = c; }
-	double getRobotRadius() { return mRobotRadius; }
-	void setRobotRadius(double r) { mRobotRadius = r; }
-	std::string getPath() { return mPath; }
-	void setPath(std::string s) { mPath = s; }
-	
-	const nav_msgs::OccupancyGrid& getMap() const { return mOccupancyGrid; }
 
 	bool getIndex(unsigned int x, unsigned int y, unsigned int &i)
 	{
@@ -204,7 +179,7 @@ public:
 	{
 		int minVal = 101;
 		int maxVal = -1;
-		int radius = ceil(mRobotRadius/getResolution()/100.0);
+		int radius = ceil(1.3*mRobotRadius / getResolution());
 		int val, vx[2], vy[2];
 		for(int x = xCenter - radius; x <= xCenter; ++x)
 			for(int y = yCenter - radius; y <= yCenter; ++y)
@@ -239,24 +214,33 @@ public:
 		return isFree(x, y);
 	}
 
-	bool isFrontier(unsigned int index)
+	bool isFrontier(unsigned int X, unsigned int Y) 
 	{
-		ROS_DEBUG("Robot radius: %f", mRobotRadius);
 		ROS_DEBUG("Map resolution: %f", getResolution());
-		return uFunction(index, ceil(3.*mRobotRadius/getResolution()/100.0)) > mGainConst;
+		unsigned int index;
+		getIndex(X, Y, index);
+		return uFunction(index) > mGainConst;	
 	}
 
-	double uFunction(unsigned int index, unsigned int radius)
+	bool isFrontier(unsigned int index)
+	{
+		ROS_DEBUG("Map resolution: %f", getResolution());
+		return uFunction(index) > mGainConst;
+	}
+
+	double uFunction(unsigned int index)
 	{
 		unsigned int xCenter;
 		unsigned int yCenter;
 		getCoordinates(xCenter, yCenter, index);
+		unsigned int radius = ceil(mLaserRange / getResolution() / 2.0);
+
 		unsigned int current_index;
 		std::map<unsigned int, double> minDistance;
 
 		ROS_DEBUG("Area radius: %d", radius);
 
-		int all_cells = 0;
+		int all_cells = 3*radius*radius;
 		for(int x = xCenter; x <= xCenter + radius; ++x)
 			for(int y = yCenter; y <= yCenter + radius; ++y)
 				if((x - xCenter)*(x - xCenter) + (y - yCenter)*(y - yCenter) <= radius*radius)
@@ -296,8 +280,6 @@ public:
 			
 			queue.erase(next);
 
-			all_cells++;
-
 			int value = getData(current_index);
 			unsigned int x, y;
 			getCoordinates(x, y, current_index);
@@ -326,7 +308,7 @@ public:
 					}
 				}
 
-			    if(value) use_cells++;
+			    if(value > 0) use_cells++;
 			}
 
 		}
@@ -345,6 +327,13 @@ public:
 			return -1;
 	}
 
+	char getData(int x, int y)
+	{
+		if(x < 0 || x >= (int)mMapWidth || y < 0 || y >= (int)mMapHeight) return -1;
+		
+		return mOccupancyGrid.data[y*mMapWidth + x];
+	}
+
 	bool setData(unsigned int index, char value)
 	{
 		if(index >= mMapWidth*mMapHeight)
@@ -356,13 +345,6 @@ public:
 		return true;
 	}
 
-	char getData(int x, int y)
-	{
-		if(x < 0 || x >= (int)mMapWidth || y < 0 || y >= (int)mMapHeight) return -1;
-		
-		return mOccupancyGrid.data[y*mMapWidth + x];
-	}
-
 	bool setData(int x, int y, char value)
 	{
 		if(x < 0 || x >= (int)mMapWidth || y < 0 || y >= (int)mMapHeight) return false;
@@ -371,11 +353,45 @@ public:
 		return true;
 	}
 
+	void update(nav_msgs::OccupancyGrid grid)
+	{
+		mOccupancyGrid = grid;
+		mMapWidth = mOccupancyGrid.info.width;
+		mMapHeight = mOccupancyGrid.info.height;
+		ROS_DEBUG("Got new map of size %d x %d", mMapWidth, mMapHeight);
+	}
+
+	const nav_msgs::OccupancyGrid& getMap() const { return mOccupancyGrid; }
+
+	unsigned int getWidth() { return mMapWidth; }
+	unsigned int getHeight() { return mMapHeight; }
+	unsigned int getSize() { return mMapWidth * mMapHeight; }
+	double getResolution() { return mOccupancyGrid.info.resolution; }
+	double getOriginX() { return mOccupancyGrid.info.origin.position.x; }
+	double getOriginY() { return mOccupancyGrid.info.origin.position.y; }
+
+	char getLethalCost() { return mLethalCost; }
+	void setLethalCost(char c) { mLethalCost = c; };
+	
+	double getGainConst() { return mGainConst; }
+	void setGainConst(double c) { mGainConst = c; }
+	
+	double getRobotRadius() { return mRobotRadius; }
+	void setRobotRadius(double r) { mRobotRadius = r; }
+
+	double getLaserRange() { return mLaserRange; }
+	void setLaserRange(double r) { mLaserRange = r; }
+	
+	std::string getPath() { return mPath; }
+	void setPath(std::string s) { mPath = s; }
+	
+
 private:
 	nav_msgs::OccupancyGrid mOccupancyGrid;
 	unsigned int mMapWidth;
 	unsigned int mMapHeight;
 	double mRobotRadius;
+	double mLaserRange;
 	char mLethalCost;
 	double mGainConst;
 	std::string mPath;
